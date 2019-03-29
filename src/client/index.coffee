@@ -12,15 +12,12 @@
 
 
 if WEB?
-  hasBCSocket = window.BCSocket isnt undefined
-  hasSockJS = window.SockJS isnt undefined
-  if hasBCSocket
-    socketImpl = 'channel'
-  else
-    if hasSockJS
-      socketImpl = 'sockjs'
-    else
-      socketImpl = 'websocket'
+  {BCSocket, SockJS} = window
+  socketImpl = switch
+    when BCSocket? then 'channel'
+    when Meteor?.connection._stream.socket? then 'meteor'
+    when SockJS? then 'sockjs'
+    else 'websocket'
 else
   Connection = require('./connection').Connection
 

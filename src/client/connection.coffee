@@ -14,13 +14,11 @@
 if WEB?
   types = exports.types
   {BCSocket, SockJS, WebSocket} = window
-  if BCSocket
-    socketImpl = 'channel'
-  else
-    if SockJS
-      socketImpl = 'sockjs'
-    else
-      socketImpl = 'websocket'
+  socketImpl = switch
+    when BCSocket? then 'channel'
+    when Meteor?.connection._stream.socket? then 'meteor'
+    when SockJS? then 'sockjs'
+    else 'websocket'
 else
   types = require '../types'
   {BCSocket} = require 'browserchannel'
@@ -46,12 +44,17 @@ class Connection
 
     @socket = switch socketImpl
       when 'channel' then new BCSocket(host, reconnect:true)
+      when 'meteor' then Meteor.connection._stream.socket
       when 'sockjs' then new ReconnectingWebSocket(host, SockJS)
       when 'websocket' then new ReconnectingWebSocket(host)
       else new BCSocket(host, reconnect:true)
 
-    @socket.onmessage = (msg) =>
-      msg = JSON.parse(msg.data) if socketImpl in ['sockjs', 'websocket']
+    @socket.onmessage = (incoming_msg) =>
+      msg = if socketImpl in ['sockjs', 'websocket', 'meteor'] then JSON.parse(incoming_msg.data) else incoming_msg
+      if socketImpl == 'meteor' and msg.msg?
+        return
+
+      console.log 'msg', msg
       if msg.auth is null
         # Auth failed.
         @lastError = msg.error # 'forbidden'
@@ -101,8 +104,11 @@ class Connection
       #console.warn 'connecting'
       @setState 'connecting'
 
+    if socketImpl == 'meteor'
+      @socket.onopen()
+
   setState: (state, data) ->
-    #console.log "connection state #{@state} -> #{state}"
+    console.log "connection state #{@state} -> #{state}"
     return if @state is state
     @state = state
 
@@ -123,7 +129,7 @@ class Connection
         @lastSentDoc = docName
 
     #console.warn 'c->s', data
-    data = JSON.stringify(data) if socketImpl in ['sockjs', 'websocket']
+    data = JSON.stringify(data) if socketImpl in ['sockjs', 'websocket', 'meteor']
     @socket.send data
 
   disconnect: ->
