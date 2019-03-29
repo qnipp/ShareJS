@@ -9,6 +9,7 @@ createDb = require './db'
 rest = require './rest'
 browserChannel = require './browserchannel'
 sockjs = require './sockjs'
+meteor = require './meteor-sockjs'
 websocket = require './websocket'
 
 # Create an HTTP server and attach whatever frontends are specified in the options.
@@ -36,11 +37,17 @@ create.attach = attach = (server, options, model = createModel(options)) ->
   options.staticpath ?= '/share'
 
   server.model = model
+
+  createAgent = require('./useragent') model, options
+
+  if options.useMeteorConnection
+    console.log 'Meteor detected'
+    meteor.attach server, createAgent
+    return server
+
   server.on 'close', -> model.closeDb()
 
   server.use options.staticpath, connect.static("#{__dirname}/../../webclient") if options.staticpath != null
-
-  createAgent = require('./useragent') model, options
 
   # The client frontend doesn't get access to the model at all, to make sure security stuff is
   # done properly.
