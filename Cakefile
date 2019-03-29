@@ -46,7 +46,7 @@ makeUgly = (infile, outfile) ->
     defines:
       WEB: ['name', 'true']
 
-  ast = parser.parse source
+  ast = parser.parse source.stdout
   ast = uglify.ast_lift_variables ast
   ast = uglify.ast_mangle ast, opts
   ast = uglify.ast_squeeze ast
